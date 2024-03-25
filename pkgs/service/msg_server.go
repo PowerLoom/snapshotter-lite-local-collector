@@ -81,7 +81,7 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 				if err == nil {
 					break
 				} else {
-					log.Errorln("Collector stream error, retrying: ", err.Error())
+					log.Errorln("relay stream error, retrying: ", err.Error())
 				}
 			}
 		}
