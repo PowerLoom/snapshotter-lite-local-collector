@@ -3,7 +3,6 @@ package config
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
@@ -13,9 +12,8 @@ import (
 var SettingsObj *Settings
 
 type Settings struct {
-	RelayerUrl  string `json:"RelayerUrl"`
-	RelayerId   string `json:"RelayerId"`
-	CollectorId string `json:"CollectorId"`
+	RelayerUrl string `json:"RelayerUrl"`
+	RelayerId  string `json:"RelayerId"`
 }
 
 func LoadConfig() {
@@ -65,22 +63,5 @@ func LoadConfig() {
 		line := scanner.Text()
 		config.RelayerUrl = line
 	}
-
-	file, err = os.Open("/shared_data/collector_id.txt")
-	if err != nil {
-		log.Debugf("Error opening relayer info file: %v", err)
-	}
-	defer file.Close()
-
-	// Initialize variables to hold relayer URL and ID
-
-	scanner = bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		config.CollectorId = line
-	}
-
-	fmt.Println("Read value from files: ", config.RelayerUrl, config.RelayerId, config.CollectorId)
-
 	SettingsObj = &config
 }

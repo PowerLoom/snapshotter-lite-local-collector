@@ -29,10 +29,10 @@ func NewMsgServerImpl() pkgs.SubmissionServer {
 }
 
 func setNewStream(s *server) error {
-	st, err := rpctorelay.NewStream(network.WithUseTransient(context.Background(), "collect"), CollectorId, protocol.ConvertFromStrings([]string{"/collect"})[0])
+	st, err := rpctorelay.NewStream(network.WithUseTransient(context.Background(), "broadcast"), RelayerId, protocol.ConvertFromStrings([]string{"/broadcast"})[0])
 
 	if err != nil {
-		log.Debugln(err.Error())
+		log.Debugln("Stream creation error: ", err.Error())
 		return errors.New("unable to establish stream")
 	}
 	s.stream = st
