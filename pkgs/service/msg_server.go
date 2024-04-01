@@ -67,7 +67,12 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 			return err
 		}
 		if _, err = s.stream.Write(submissionBytes); err != nil {
-			s.stream.Close()
+			log.Debugln("libp2p stream error: ", err.Error())
+			log.Debugln("Setting new stream and retrying")
+			err = s.stream.Close()
+			if err != nil {
+				log.Debugln("unable to close stream: ", err.Error())
+			}
 			setNewStream(s)
 
 			for i := 0; i < 5; i++ {
@@ -76,11 +81,16 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 					break
 				} else {
 					log.Errorln("relay stream error, retrying: ", err.Error())
+					err = s.stream.Close()
+					if err != nil {
+						log.Debugln("unable to close stream: ", err.Error())
+					}
 					setNewStream(s)
 				}
 			}
 		}
 	}
+	log.Debugln("Submission sent successfully")
 	return stream.SendAndClose(&pkgs.SubmissionResponse{Message: submissionId.String()})
 }
 
