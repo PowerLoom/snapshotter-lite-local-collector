@@ -3,10 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io"
@@ -28,22 +26,18 @@ func NewMsgServerImpl() pkgs.SubmissionServer {
 	return &server{}
 }
 
-func setNewStream(s *server) error {
-	st, err := rpctorelay.NewStream(network.WithUseTransient(context.Background(), "broadcast"), RelayerId, protocol.ConvertFromStrings([]string{"/broadcast"})[0])
+func setNewStream(s *server) {
+	st, err := rpctorelay.NewStream(network.WithUseTransient(context.Background(), "broadcast"), RelayerId, "/broadcast")
 
 	if err != nil {
 		log.Debugln("Stream creation error: ", err.Error())
-		return errors.New("unable to establish stream")
 	}
 	s.stream = st
-
-	return nil
 }
 
 func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) error {
 	if s.stream == nil {
-		err := setNewStream(s)
-		log.Debugln(err)
+		setNewStream(s)
 	}
 	var submissionId uuid.UUID
 	for {
@@ -82,6 +76,7 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 					break
 				} else {
 					log.Errorln("relay stream error, retrying: ", err.Error())
+					setNewStream(s)
 				}
 			}
 		}
@@ -101,7 +96,7 @@ func StartSubmissionServer(server pkgs.SubmissionServer) {
 
 	s := grpc.NewServer()
 	pkgs.RegisterSubmissionServer(s, server)
-	log.Debugln("Server listening at", lis.Addr())
+	log.Debugln("Server listening at ", lis.Addr())
 
 	if err := s.Serve(lis); err != nil {
 		log.Debugf("failed to serve: %v", err)
