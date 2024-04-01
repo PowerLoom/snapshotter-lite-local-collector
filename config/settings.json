@@ -1,4 +1,4 @@
 {
-  "RelayerUrl": "/ip6/::1/udp/60362/quic-v1",
-  "RelayerId": "12D3KooWPWyWS9cYh1PoTYA4JVugGMFCdjjCDU8p87tGyNA8hgGB",
+  "RelayerUrl": "/ip4/10.116.0.11/tcp/9100",
+  "RelayerId": "12D3KooWPWyWS9cYh1PoTYA4JVugGMFCdjjCDU8p87tGyNA8hgGB"
 }
