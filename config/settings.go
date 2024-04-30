@@ -10,9 +10,8 @@ import (
 var SettingsObj *Settings
 
 type Settings struct {
-	SequencerId           string `json:"SequencerId"`
-	RendezvousPoint       string `json:"RendezvousPoint"`
-	ClientRendezvousPoint string `json:"ClientRendezvousPoint"`
+	SequencerId     string `json:"SequencerId"`
+	RendezvousPoint string `json:"RendezvousPoint"`
 }
 
 func LoadConfig() {

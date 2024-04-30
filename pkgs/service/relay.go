@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	"github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
@@ -20,6 +20,17 @@ import (
 var rpctorelay host.Host
 var SequencerId peer.ID
 var routingDiscovery *routing.RoutingDiscovery
+var activeConnections int
+
+func handleConnectionEstablished(net network.Network, conn network.Conn) {
+	if net.Connectedness(conn.RemotePeer()) != network.Connected {
+		activeConnections++
+	}
+}
+
+func handleConnectionClosed(network network.Network, conn network.Conn) {
+	activeConnections--
+}
 
 func ConfigureRelayer() {
 	ctx := context.Background()
@@ -27,8 +38,8 @@ func ConfigureRelayer() {
 	var err error
 
 	connManager, _ := connmgr.NewConnManager(
-		100,
 		400,
+		600,
 		connmgr.WithGracePeriod(time.Minute))
 
 	rpctorelay, err = libp2p.New(
@@ -41,12 +52,16 @@ func ConfigureRelayer() {
 		libp2p.EnableRelayService(),
 		libp2p.EnableNATService())
 
+	rpctorelay.Network().Notify(&network.NotifyBundle{
+		ConnectedF:    handleConnectionEstablished,
+		DisconnectedF: handleConnectionClosed,
+	})
+
 	// Set up a Kademlia DHT for the service host
 
 	kademliaDHT := ConfigureDHT(context.Background(), rpctorelay)
 
 	routingDiscovery = routing.NewRoutingDiscovery(kademliaDHT)
-	util.Advertise(context.Background(), routingDiscovery, config.SettingsObj.ClientRendezvousPoint)
 	time.Sleep(time.Minute)
 	peerId := ConnectToPeer(context.Background(), routingDiscovery, config.SettingsObj.RendezvousPoint, rpctorelay, nil)
 
@@ -70,4 +85,11 @@ func ConfigureRelayer() {
 	} else {
 		log.Debugln("Successfully connected to the Sequencer: ", sequencerAddr.String())
 	}
+
+	go func() {
+		for true {
+			log.Debugln("Active connections: ", activeConnections)
+			time.Sleep(time.Minute)
+		}
+	}()
 }
