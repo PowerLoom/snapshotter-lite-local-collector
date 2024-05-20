@@ -132,9 +132,13 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 				}
 				return err
 			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 2))
+		} else {
+			stream.Send(&pkgs.SubmissionResponse{Message: fmt.Sprintf("Success: %s", submissionId.String())})
+			continue
 		}
+		stream.Send(&pkgs.SubmissionResponse{Message: fmt.Sprintf("Failure: %s", submissionId.String())})
 	}
-	return stream.SendAndClose(&pkgs.SubmissionResponse{Message: submissionId.String()})
+	return stream.Send(&pkgs.SubmissionResponse{Message: "Success"})
 }
 
 func (s *server) mustEmbedUnimplementedSubmissionServer() {
