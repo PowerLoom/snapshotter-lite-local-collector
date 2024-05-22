@@ -1,0 +1,12 @@
+[
+  {
+    "id": "QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU",
+    "name": "Relayer1",
+    "address": "/ip4/127.0.0.1/tcp/4001/p2p/QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU"
+  },
+  {
+    "id": "QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPV",
+    "name": "Relayer2",
+    "address": "/ip4/127.0.0.1/tcp/4002/p2p/QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPV"
+  }
+]
