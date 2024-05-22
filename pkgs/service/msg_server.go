@@ -97,10 +97,14 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 		if err != nil {
 			switch {
 			case err == io.EOF:
+				stream.SendMsg(&pkgs.SubmissionResponse{Message: "EOF reached"})
 				log.Debugln("EOF reached")
 			case strings.Contains(err.Error(), "context canceled"):
+				stream.SendMsg(&pkgs.SubmissionResponse{Message: "Stream ended by client"})
 				log.Errorln("Stream ended by client: ")
 			default:
+				errorMessage := fmt.Sprintf("Unexpected stream error: %s", err.Error())
+				stream.SendMsg(&pkgs.SubmissionResponse{Message: errorMessage})
 				log.Errorln("Unexpected stream error: ", err.Error())
 				return err
 			}
@@ -115,16 +119,21 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 
 		subBytes, err := json.Marshal(submission)
 		if err != nil {
+			errorMessage := fmt.Sprintf("Error marshalling submission: %s", err.Error())
+			stream.SendMsg(&pkgs.SubmissionResponse{Message: errorMessage})
 			log.Debugln("Error marshalling submissionId: ", err.Error())
 		}
 		log.Debugln("Sending submission with ID: ", submissionId.String())
 
 		submissionBytes := append(submissionIdBytes, subBytes...)
 		if err != nil {
+			errorMessage := fmt.Sprintf("Error marshalling submission: %s", err.Error())
+			stream.SendMsg(&pkgs.SubmissionResponse{Message: errorMessage})
 			log.Debugln("Could not marshal submission")
 			return err
 		}
 		if _, err = s.stream.Write(submissionBytes); err != nil {
+			//stream.send(&pkgs.SubmissionResponse{Message: "Sequencer stream error, retrying: %s", err.Error()})
 			log.Debugln("Stream write error: ", err.Error())
 			s.stream.Close()
 
@@ -132,13 +141,23 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 			TryConnection(s)
 			mu.Unlock()
 
-			backoff.Retry(func() error {
+			err = backoff.Retry(func() error {
 				_, err = s.stream.Write(subBytes)
 				if err != nil {
+					//stream.send(&pkgs.SubmissionResponse{Message: "Sequencer stream error, retrying: %s", err.Error()})
 					log.Errorln("Sequencer stream error, retrying: ", err.Error())
 				}
 				return err
 			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 2))
+
+			if err != nil {
+				errorMessage := fmt.Sprintf("Failed to send submission after retries: %s", err.Error())
+				stream.SendMsg(&pkgs.SubmissionResponse{Message: errorMessage})
+			} else {
+				stream.SendMsg(&pkgs.SubmissionResponse{Message: "Success"})
+			}
+		} else {
+			stream.SendMsg(&pkgs.SubmissionResponse{Message: "Success"})
 		}
 	}
 }
