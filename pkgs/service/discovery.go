@@ -9,6 +9,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	log "github.com/sirupsen/logrus"
+	"proto-snapshot-server/config"
+	"proto-snapshot-server/pkgs/helpers/relayers"
 	"sync"
 )
 
@@ -31,6 +33,18 @@ func ConnectToPeer(ctx context.Context, routingDiscovery *routing.RoutingDiscove
 	log.Debugln("Skipping visited peers: ", visited)
 
 	for relayer := range peerChan {
+		isTrusted, err := relayers.IsRelayerTrusted(relayer.ID.String(), config.SettingsObj.RelayerRendezvousPoint)
+		if err != nil {
+			log.Debugln("Failed to check if relayer is trusted:", err)
+		}
+
+		log.Debugln("Checking if relayer is trusted:", isTrusted, relayer.ID)
+
+		if !isTrusted {
+			log.Debugln("Relayer not trusted:", relayer.ID)
+			continue // Skip untrusted peers
+		}
+
 		if relayer.ID == host.ID() || isVisited(relayer.ID, visited) {
 			continue // Skip self or peers with no addresses
 		}
