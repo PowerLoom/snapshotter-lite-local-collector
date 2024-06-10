@@ -48,7 +48,7 @@ func InitLogger() {
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 
 	// Set up log rotation for all logs
-	logPath := "/logs/trace.log"
+	logPath := "/logs/snapshotter-lite-local-collector/trace.log"
 	traceLogger := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    100, // megabytes
@@ -58,7 +58,7 @@ func InitLogger() {
 	}
 
 	// Set up log rotation for error logs
-	errorLogPath := "logs/error.log"
+	errorLogPath := "logs/snapshotter-lite-local-collector/error.log"
 	errorLogger := &lumberjack.Logger{
 		Filename:   errorLogPath,
 		MaxSize:    100, // megabytes
