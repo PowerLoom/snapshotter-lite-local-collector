@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/writer"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -15,6 +14,19 @@ func InitLogger() {
 
 	log.SetReportCaller(true)
 
+	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
+
+	// Function to create a new lumberjack logger
+	newLogger := func(fileName string) io.Writer {
+		return &lumberjack.Logger{
+			Filename:   fileName,
+			MaxSize:    100, // megabytes
+			MaxBackups: 7,
+			MaxAge:     30,   //days
+			Compress:   true, // enabled by default
+		}
+	}
+
 	log.AddHook(&writer.Hook{ // Send logs with level higher than warning to stderr
 		Writer: os.Stderr,
 		LogLevels: []log.Level{
@@ -24,6 +36,7 @@ func InitLogger() {
 			log.WarnLevel,
 		},
 	})
+
 	log.AddHook(&writer.Hook{ // Send info and debug logs to stdout
 		Writer: os.Stdout,
 		LogLevels: []log.Level{
@@ -32,64 +45,59 @@ func InitLogger() {
 			log.DebugLevel,
 		},
 	})
-	if len(os.Args) < 2 {
-		fmt.Println("Pass loglevel as an argument if you don't want default(INFO) to be set.")
-		fmt.Println("Values to be passed for logLevel: ERROR(2),INFO(4),DEBUG(5)")
-		log.SetLevel(log.DebugLevel)
-	} else {
-		logLevel, err := strconv.ParseUint(os.Args[1], 10, 32)
-		if err != nil || logLevel > 6 {
-			log.SetLevel(log.DebugLevel) //TODO: Change default level to error
-		} else {
-			//TODO: Need to come up with approach to dynamically update logLevel.
-			log.SetLevel(log.Level(logLevel))
-		}
-	}
-	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 
-	// Set up log rotation for all logs
-	logPath := "/logs/snapshotter-lite-local-collector/trace.log"
-	traceLogger := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    100, // megabytes
-		MaxBackups: 7,
-		MaxAge:     30, //days
-		Compress:   true,
-	}
-
-	// Set up log rotation for error logs
-	errorLogPath := "logs/snapshotter-lite-local-collector/error.log"
-	errorLogger := &lumberjack.Logger{
-		Filename:   errorLogPath,
-		MaxSize:    100, // megabytes
-		MaxBackups: 7,
-		MaxAge:     30, //days
-		Compress:   true,
-	}
-
-	// Hook to write logs to the traceLogger
 	log.AddHook(&writer.Hook{
-		Writer: traceLogger,
+		Writer: newLogger("logs/snapshotter-lite-local-collector/critical.log"),
 		LogLevels: []log.Level{
 			log.PanicLevel,
 			log.FatalLevel,
+		},
+	})
+
+	log.AddHook(&writer.Hook{
+		Writer: newLogger("logs/snapshotter-lite-local-collector/error.log"),
+		LogLevels: []log.Level{
 			log.ErrorLevel,
+		},
+	})
+
+	log.AddHook(&writer.Hook{
+		Writer: newLogger("logs/snapshotter-lite-local-collector/warning.log"),
+		LogLevels: []log.Level{
 			log.WarnLevel,
+		},
+	})
+
+	log.AddHook(&writer.Hook{
+		Writer: newLogger("logs/snapshotter-lite-local-collector/info.log"),
+		LogLevels: []log.Level{
 			log.InfoLevel,
+		},
+	})
+
+	log.AddHook(&writer.Hook{
+		Writer: newLogger("logs/snapshotter-lite-local-collector/debug.log"),
+		LogLevels: []log.Level{
 			log.DebugLevel,
+		},
+	})
+
+	log.AddHook(&writer.Hook{
+		Writer: newLogger("logs/snapshotter-lite-local-collector/trace.log"),
+		LogLevels: []log.Level{
 			log.TraceLevel,
 		},
 	})
 
-	// Hook to write error logs to errorLogger
-	log.AddHook(&writer.Hook{
-		Writer: errorLogger,
-		LogLevels: []log.Level{
-			log.PanicLevel,
-			log.FatalLevel,
-			log.ErrorLevel,
-		},
-	})
-
-	log.Infof("Logger initialized with log level %s", log.GetLevel().String())
+	// Set the default log level
+	if len(os.Args) < 2 {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		logLevel, err := strconv.ParseUint(os.Args[1], 10, 32)
+		if err != nil || logLevel > 6 {
+			log.SetLevel(log.DebugLevel)
+		} else {
+			log.SetLevel(log.Level(logLevel))
+		}
+	}
 }
