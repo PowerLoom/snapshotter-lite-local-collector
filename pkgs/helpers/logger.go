@@ -48,8 +48,8 @@ func InitLogger() {
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 
 	// Set up log rotation for all logs
-	logPath := "logs/all.log"
-	allLogger := &lumberjack.Logger{
+	logPath := "/logs/trace.log"
+	traceLogger := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    100, // megabytes
 		MaxBackups: 7,
@@ -67,9 +67,9 @@ func InitLogger() {
 		Compress:   true,
 	}
 
-	// Hook to write logs to the allLogger
+	// Hook to write logs to the traceLogger
 	log.AddHook(&writer.Hook{
-		Writer: allLogger,
+		Writer: traceLogger,
 		LogLevels: []log.Level{
 			log.PanicLevel,
 			log.FatalLevel,

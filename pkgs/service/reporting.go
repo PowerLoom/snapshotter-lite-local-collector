@@ -18,6 +18,7 @@ type ReportingService struct {
 	url    string
 	client *http.Client
 }
+
 type SnapshotterIssue struct {
 	InstanceID      string `json:"instanceID"`
 	IssueType       string `json:"issueType"`
@@ -25,6 +26,11 @@ type SnapshotterIssue struct {
 	EpochID         string `json:"epochId"`
 	TimeOfReporting string `json:"timeOfReporting"`
 	Extra           string `json:"extra"`
+}
+
+func (s SnapshotterIssue) String() string {
+	return fmt.Sprintf("InstanceID: %s, IssueType: %s, ProjectID: %s, EpochID: %s, TimeOfReporting: %s, Extra: %s",
+		s.InstanceID, s.IssueType, s.ProjectID, s.EpochID, s.TimeOfReporting, s.Extra)
 }
 
 func InitializeReportingService(url string, timeout time.Duration) {
@@ -71,7 +77,7 @@ func (s *ReportingService) SendFailureNotification(request *pkgs.Request, extraD
 	// Send the request
 	resp, err := s.client.Do(req)
 	if err != nil {
-		log.Errorln("Error sending request: ", err)
+		log.Errorf("Error sending request for issue %s: %s\n", issue.String(), err)
 		// Handle error in case of failure
 		return
 	}
