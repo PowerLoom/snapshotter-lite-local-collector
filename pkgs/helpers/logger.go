@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/writer"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"strconv"
@@ -45,4 +46,50 @@ func InitLogger() {
 		}
 	}
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
+
+	// Set up log rotation for all logs
+	logPath := "logs/all.log"
+	allLogger := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    100, // megabytes
+		MaxBackups: 7,
+		MaxAge:     30, //days
+		Compress:   true,
+	}
+
+	// Set up log rotation for error logs
+	errorLogPath := "logs/error.log"
+	errorLogger := &lumberjack.Logger{
+		Filename:   errorLogPath,
+		MaxSize:    100, // megabytes
+		MaxBackups: 7,
+		MaxAge:     30, //days
+		Compress:   true,
+	}
+
+	// Hook to write logs to the allLogger
+	log.AddHook(&writer.Hook{
+		Writer: allLogger,
+		LogLevels: []log.Level{
+			log.PanicLevel,
+			log.FatalLevel,
+			log.ErrorLevel,
+			log.WarnLevel,
+			log.InfoLevel,
+			log.DebugLevel,
+			log.TraceLevel,
+		},
+	})
+
+	// Hook to write error logs to errorLogger
+	log.AddHook(&writer.Hook{
+		Writer: errorLogger,
+		LogLevels: []log.Level{
+			log.PanicLevel,
+			log.FatalLevel,
+			log.ErrorLevel,
+		},
+	})
+
+	log.Infof("Logger initialized with log level %s", log.GetLevel().String())
 }
