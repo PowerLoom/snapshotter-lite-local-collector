@@ -47,7 +47,7 @@ func InitLogger() {
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/critical.log"),
+		Writer: newLogger("/logs/critical.log"),
 		LogLevels: []log.Level{
 			log.PanicLevel,
 			log.FatalLevel,
@@ -55,35 +55,35 @@ func InitLogger() {
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/error.log"),
+		Writer: newLogger("/logs/error.log"),
 		LogLevels: []log.Level{
 			log.ErrorLevel,
 		},
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/warning.log"),
+		Writer: newLogger("/logs/warning.log"),
 		LogLevels: []log.Level{
 			log.WarnLevel,
 		},
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/info.log"),
+		Writer: newLogger("/logs/info.log"),
 		LogLevels: []log.Level{
 			log.InfoLevel,
 		},
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/debug.log"),
+		Writer: newLogger("/logs/debug.log"),
 		LogLevels: []log.Level{
 			log.DebugLevel,
 		},
 	})
 
 	log.AddHook(&writer.Hook{
-		Writer: newLogger("logs/snapshotter-lite-local-collector/trace.log"),
+		Writer: newLogger("/logs/trace.log"),
 		LogLevels: []log.Level{
 			log.TraceLevel,
 		},
