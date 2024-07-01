@@ -69,7 +69,7 @@ func mustSetStream(s *server) error {
 			log.Errorln(err.Error())
 			connectedPeer = ConnectToPeer(context.Background(), routingDiscovery, config.SettingsObj.RelayerRendezvousPoint, rpctorelay, peers)
 			if len(connectedPeer.String()) > 0 {
-				peers = append(peers)
+				peers = append(peers, connectedPeer)
 				ConnectToSequencer(connectedPeer)
 			} else {
 				return errors.New("No peer connections formed")

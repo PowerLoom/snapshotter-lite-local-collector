@@ -5,11 +5,12 @@ option go_package = "github.com/PowerLoom/proto-snapshot-server/pkgs";
 
 // Request structure as defined in your Solidity contract
 message Request {
-  uint64 slotId = 1;
-  uint64 deadline = 2;
-  string snapshotCid = 3;
-  uint64 epochId = 4;
-  string projectId = 5;
+  uint64 dataMarketId = 1;
+  uint64 slotId = 2;
+  uint64 deadline = 3;
+  string snapshotCid = 4;
+  uint64 epochId = 5;
+  string projectId = 6;
 }
 
 message SnapshotSubmission {
