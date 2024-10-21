@@ -139,15 +139,17 @@ func (s *server) SubmitSnapshot(stream pkgs.Submission_SubmitSnapshotServer) err
 			log.Errorln("Error marshalling submissionId: ", err.Error())
 			return stream.Send(&pkgs.SubmissionResponse{Message: "Failure"})
 		}
+		dataMarketAddressBytes := []byte(config.SettingsObj.DataMarketAddress)
 
 		subBytes, err := json.Marshal(submission)
 		if err != nil {
 			log.Errorln("Could not marshal submission: ", err.Error())
 			return stream.Send(&pkgs.SubmissionResponse{Message: "Failure"})
 		}
-		log.Debugln("Sending submission with ID: ", submissionId.String())
 
-		submissionBytes := append(submissionIdBytes, subBytes...)
+		// Combine all parts
+		submissionBytes := append(submissionIdBytes, dataMarketAddressBytes...)
+		submissionBytes = append(submissionBytes, subBytes...)
 
 		err = s.writeToStream(submissionBytes)
 		if err != nil {
