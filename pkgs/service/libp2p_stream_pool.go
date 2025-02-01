@@ -88,15 +88,20 @@ func GetLibp2pStreamPool() *StreamPool {
 }
 
 func (p *StreamPool) GetStream() (network.Stream, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	backOff := backoff.NewExponentialBackOff()
+	backOff.MaxElapsedTime = config.SettingsObj.StreamWriteTimeout
+	backOff.InitialInterval = 100 * time.Millisecond
+	backOff.MaxInterval = 2 * time.Second
 
-	// Keep trying until we get a stream or hit an error
-	for {
-		// Check if we have a usable stream
+	ticker := time.NewTicker(backOff.InitialInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		p.mu.Lock()
 		if len(p.streams) > 0 {
 			stream := p.streams[len(p.streams)-1]
 			p.streams = p.streams[:len(p.streams)-1]
+			p.mu.Unlock()
 
 			// Verify stream is on current connection
 			if stream.Conn().ID() != SequencerHostConn.ID().String() {
@@ -109,16 +114,19 @@ func (p *StreamPool) GetStream() (network.Stream, error) {
 				return stream, nil
 			}
 			stream.Close()
-		}
+		} else {
+			p.mu.Unlock()
 
-		// Create new stream if pool is empty
-		stream, err := p.createNewStreamWithRetry()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new stream: %w", err)
+			nextInterval := backOff.NextBackOff()
+			if nextInterval == backoff.Stop {
+				return nil, fmt.Errorf("resource limit exceeded: no streams available after max wait time")
+			}
+			ticker.Reset(nextInterval)
 		}
-
-		return stream, nil
 	}
+
+	// This should never be reached due to the infinite range loop
+	return nil, fmt.Errorf("unexpected exit from stream acquisition loop")
 }
 
 func (p *StreamPool) ReturnStream(stream network.Stream) {

@@ -7,6 +7,7 @@ import (
 	"net"
 	"proto-snapshot-server/config"
 	"proto-snapshot-server/pkgs"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -97,10 +98,23 @@ func (s *server) SubmitSnapshot(ctx context.Context, submission *pkgs.SnapshotSu
 	metrics := s.getOrCreateEpochMetrics(submission.Request.EpochId)
 	metrics.received.Add(1)
 
-	s.writeSemaphore <- struct{}{}
+	// Use context with timeout for write semaphore acquisition
+	writeCtx, cancel := context.WithTimeout(ctx, config.SettingsObj.StreamWriteTimeout)
+	defer cancel()
+
+	select {
+	case s.writeSemaphore <- struct{}{}:
+		// Got the semaphore
+	case <-writeCtx.Done():
+		return &pkgs.SubmissionResponse{Message: "Failure"}, fmt.Errorf("timeout waiting for write slot")
+	}
+
 	go func() {
 		defer func() { <-s.writeSemaphore }()
-		if err := s.writeToStream(submissionBytes, submissionId.String(), submission); err != nil {
+		if err := s.writeToStream(writeCtx, submissionBytes, submissionId.String(), submission); err != nil {
+			if strings.Contains(err.Error(), "resource limit exceeded") {
+				log.Fatalf("❌ Fatal: Stream resource limit exceeded. Error: %v", err)
+			}
 			log.Errorf("❌ Stream write failed for %s: %v", submissionId.String(), err)
 		}
 	}()
@@ -112,7 +126,7 @@ func (s *server) SubmitSnapshotSimulation(stream pkgs.Submission_SubmitSnapshotS
 	return nil // not implemented, will remove
 }
 
-func (s *server) writeToStream(data []byte, submissionId string, submission *pkgs.SnapshotSubmission) error {
+func (s *server) writeToStream(ctx context.Context, data []byte, submissionId string, submission *pkgs.SnapshotSubmission) error {
 	pool := GetLibp2pStreamPool()
 	if pool == nil {
 		return fmt.Errorf("stream pool not available")
@@ -126,6 +140,8 @@ func (s *server) writeToStream(data []byte, submissionId string, submission *pkg
 	success := false
 	defer func() {
 		if !success {
+			stream.Reset()
+			stream.Close()
 			if submission.Request.EpochId == 0 {
 				log.Errorf("❌ Failed defer for SIMULATION snapshot submission (Project: %s, Epoch: %d) with ID: %s: %v",
 					submission.Request.ProjectId, submission.Request.EpochId, submissionId, err)
@@ -133,14 +149,12 @@ func (s *server) writeToStream(data []byte, submissionId string, submission *pkg
 				log.Errorf("❌ Failed defer for snapshot submission (Project: %s, Epoch: %d) with ID: %s: %v",
 					submission.Request.ProjectId, submission.Request.EpochId, submissionId, err)
 			}
-			stream.Reset()
-			stream.Close()
 		} else {
 			if submission.Request.EpochId == 0 {
-				log.Infof("⏰ Succesful defer for SIMULATION snapshot submission (Project: %s, Epoch: %d) with ID: %s",
+				log.Infof("⏰ Successful defer for SIMULATION snapshot submission (Project: %s, Epoch: %d) with ID: %s",
 					submission.Request.ProjectId, submission.Request.EpochId, submissionId)
 			} else {
-				log.Infof("⏰ Succesful defer for snapshot submission (Project: %s, Epoch: %d) with ID: %s",
+				log.Infof("⏰ Successful defer for snapshot submission (Project: %s, Epoch: %d) with ID: %s",
 					submission.Request.ProjectId, submission.Request.EpochId, submissionId)
 			}
 			// Get metrics and increment success counter
@@ -151,9 +165,14 @@ func (s *server) writeToStream(data []byte, submissionId string, submission *pkg
 		pool.ReturnStream(stream)
 	}()
 
-	if err := stream.SetWriteDeadline(time.Now().Add(config.SettingsObj.StreamWriteTimeout)); err != nil {
-		return fmt.Errorf("❌ Failed to set write deadline for submission (Project: %s, Epoch: %d) with ID: %s: %w",
-			submission.Request.ProjectId, submission.Request.EpochId, submissionId, err)
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled while preparing to write")
+	default:
+		if err := stream.SetWriteDeadline(time.Now().Add(config.SettingsObj.StreamWriteTimeout)); err != nil {
+			return fmt.Errorf("❌ Failed to set write deadline for submission (Project: %s, Epoch: %d) with ID: %s: %w",
+				submission.Request.ProjectId, submission.Request.EpochId, submissionId, err)
+		}
 	}
 
 	n, err := stream.Write(data)
@@ -231,6 +250,11 @@ func (s *server) logMetricsPeriodically(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// Track consecutive low success rate epochs
+	lowSuccessCount := 0
+	const successRateThreshold = 50.0
+	const maxLowSuccessEpochs = 3
+
 	for range ticker.C {
 		currentEpoch := s.currentEpoch.Load()
 		metrics := s.GetMetrics()
@@ -240,7 +264,7 @@ func (s *server) logMetricsPeriodically(interval time.Duration) {
 			"metrics":       metrics,
 		}).Info("📊 Periodic metrics report")
 
-		// Detailed per-epoch logging
+		// Check success rates for recent epochs
 		for epochID, m := range metrics {
 			successRate := float64(0)
 			if m.Received > 0 {
@@ -253,6 +277,21 @@ func (s *server) logMetricsPeriodically(interval time.Duration) {
 				"succeeded":    m.Succeeded,
 				"success_rate": fmt.Sprintf("%.2f%%", successRate),
 			}).Info("📈 Epoch metrics")
+
+			// Check last 3 completed epochs (current-1 to current-3)
+			epochDiff := currentEpoch - epochID
+			if epochDiff > 0 && epochDiff <= 3 {
+				if successRate < successRateThreshold {
+					lowSuccessCount++
+					if lowSuccessCount >= maxLowSuccessEpochs {
+						log.Fatalf("❌ Fatal: Detected %d consecutive epochs with success rate below %.2f%%. Current epoch: %d, Success rates: %v",
+							maxLowSuccessEpochs, successRateThreshold, currentEpoch, metrics)
+					}
+				} else {
+					// Reset counter if we see a good epoch
+					lowSuccessCount = 0
+				}
+			}
 		}
 	}
 }
